@@ -12,6 +12,7 @@ const {
     getAgentOptions,
     getReviewTagsForLocation,
 } = require('./api');
+const { getConfig } = require('./data-limits');
 
 const { utils: { log } } = Apify;
 
@@ -111,6 +112,7 @@ async function getReviews(id, client) {
     let offset = 0;
     const limit = 20;
     let numberOfFetches = 0;
+    const { maxReviews } = getConfig();
 
     try {
         const resp = await callForReview(id, client, offset, limit);
@@ -128,9 +130,11 @@ async function getReviews(id, client) {
         if (shouldSlice) {
             reviews = reviews.slice(0, lastIndex);
         }
-        const needToFetch = totalCount - limit;
+        const numberOfReviews = (maxReviews === 0 || totalCount < maxReviews) ? totalCount : maxReviews;
 
-        log.info(`Going to process ${totalCount} reviews`);
+        const needToFetch = numberOfReviews - limit;
+
+        log.info(`Going to process ${numberOfReviews} reviews`);
 
         numberOfFetches = Math.ceil(needToFetch / limit);
 
@@ -188,6 +192,7 @@ function getRequestListSources(locationId, includeHotels, includeRestaurants, in
             },
         });
     }
+    console.log(sources)
     return sources;
 }
 
