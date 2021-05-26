@@ -165,15 +165,18 @@ Apify.main(async () => {
                 // Process initial restaurantList url and add others with pagination to request queue
                 const promises = [];
                 const initialRequest = await callForRestaurantList(locationId, session);
-                const maxOffset = initialRequest.paging.total_results;
-                log.info(maxOffset, 'Number of Restaurants');
+                
+                const { total_results } = initialRequest.paging;
+                const maxOffset = (maxItems === 0 || total_results < maxItems) ? total_results : maxItems;
+                const limit = (maxItems === 0 || LIMIT < maxItems) ? LIMIT : maxItems;
+                
                 log.info(`Processing restaurants with last data offset: ${maxOffset}`);
-                for (let i = 0; i <= maxOffset; i += LIMIT) {
+                for (let i = 0; i < maxOffset; i += limit) {
                     log.info(`Adding restaurants search page with offset: ${i} to list`);
 
                     promises.push(() => requestQueue.addRequest({
                         url: buildRestaurantUrl(locationId, i.toString()),
-                        userData: { restaurantList: true, offset: i, limit: LIMIT },
+                        userData: { restaurantList: true, offset: i, limit },
                     }));
                 }
                 await randomDelay();
