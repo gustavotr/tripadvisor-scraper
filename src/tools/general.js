@@ -111,7 +111,6 @@ async function getReviews(id, client) {
     const result = [];
     let offset = 0;
     const limit = 20;
-    let totalReviews = 0;
     let numberOfFetches = 0;
     const { maxReviews } = getConfig();
 
@@ -125,21 +124,22 @@ async function getReviews(id, client) {
 
         const reviewData = resp.data[0].data.locations[0].reviewList || {};
         const { totalCount } = reviewData;
-        total = totalCount;
         let { reviews = [] } = reviewData;
         const lastIndexByDate = findLastReviewIndexByDate(reviews);
-        const shouldSlice = lastIndexByDate >= 0;
-        if (shouldSlice) {
-            reviews = reviews.slice(0, lastIndexByDate);
-        }
-       
         const lastIndexByReviewsLimit = maxReviews > 0 ? maxReviews : -1;
         const smallestIndex =  getSmallestIndexGreaterThanEqualZero(lastIndexByDate, lastIndexByReviewsLimit);
+        const shouldSlice = smallestIndex >= 0;
+        if (shouldSlice) {
+            reviews = reviews.slice(0, smallestIndex);
+        }
+       
         const numberOfReviews = (smallestIndex === -1 || totalCount < smallestIndex) ? totalCount : smallestIndex;
 
         log.info(`Going to process ${numberOfReviews} reviews`);
         
         numberOfFetches = Math.ceil(numberOfReviews / limit);
+
+        log.debug('params', {smallestIndex, numberOfFetches, totalCount})
         
         if (reviews.length >= 1) {
             reviews.forEach(review => result.push(processReview(review)));
