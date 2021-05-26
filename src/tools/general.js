@@ -94,7 +94,7 @@ const processReview = (review, remoteId) => {
     };
 };
 
-function findLastReviewIndex(reviews, dateKey) {
+function findLastReviewIndexByDate(reviews, dateKey) {
     return reviews.findIndex((r) => {
         let rDate;
         if (dateKey) {
@@ -111,6 +111,7 @@ async function getReviews(id, client) {
     const result = [];
     let offset = 0;
     const limit = 20;
+    let totalReviews = 0;
     let numberOfFetches = 0;
     const { maxReviews } = getConfig();
 
@@ -124,40 +125,44 @@ async function getReviews(id, client) {
 
         const reviewData = resp.data[0].data.locations[0].reviewList || {};
         const { totalCount } = reviewData;
+        total = totalCount;
         let { reviews = [] } = reviewData;
-        const lastIndex = findLastReviewIndex(reviews);
-        const shouldSlice = lastIndex >= 0;
+        const lastIndexByDate = findLastReviewIndexByDate(reviews);
+        const shouldSlice = lastIndexByDate >= 0;
         if (shouldSlice) {
-            reviews = reviews.slice(0, lastIndex);
+            reviews = reviews.slice(0, lastIndexByDate);
         }
-        const numberOfReviews = (maxReviews === 0 || totalCount < maxReviews) ? totalCount : maxReviews;
-
-        const needToFetch = numberOfReviews - limit;
+       
+        const lastIndexByReviewsLimit = maxReviews > 0 ? maxReviews : -1;
+        const smallestIndex =  getSmallestIndexGreaterThanEqualZero(lastIndexByDate, lastIndexByReviewsLimit);
+        const numberOfReviews = (smallestIndex === -1 || totalCount < smallestIndex) ? totalCount : smallestIndex;
 
         log.info(`Going to process ${numberOfReviews} reviews`);
-
-        numberOfFetches = Math.ceil(needToFetch / limit);
-
+        
+        numberOfFetches = Math.ceil(numberOfReviews / limit);
+        
         if (reviews.length >= 1) {
             reviews.forEach(review => result.push(processReview(review)));
         }
-
+        
         if (shouldSlice) return result;
     } catch (e) {
         log.error(e, 'Could not make initial request');
     }
     let response;
-
+    
     try {
-        for (let i = 0; i < numberOfFetches; i++) {
+        for (let i = 1; i < numberOfFetches; i++) {
             offset += limit;
             response = await callForReview(id, client, offset, limit);
             const reviewData = response.data[0].data.locations[0].reviewList;
             let { reviews } = reviewData;
-            const lastIndex = findLastReviewIndex(reviews);
-            const shouldSlice = lastIndex >= 0;
+            const lastIndexByDate = findLastReviewIndexByDate(reviews);
+            const lastIndexByReviewsLimit = maxReviews > 0 ? maxReviews - offset : -1;
+            const smallestIndex =  getSmallestIndexGreaterThanEqualZero(lastIndexByDate, lastIndexByReviewsLimit);
+            const shouldSlice = smallestIndex >= 0;
             if (shouldSlice) {
-                reviews = reviews.slice(0, lastIndex);
+                reviews = reviews.slice(0, smallestIndex);
             }
             reviews.forEach(review => result.push(processReview(review)));
             if (shouldSlice) break;
@@ -167,8 +172,20 @@ async function getReviews(id, client) {
         log.error(e, 'Could not make additional requests');
     }
     return result;
-}
+    }
 
+function getSmallestIndexGreaterThanEqualZero(indexA, indexB){
+    if (indexA >= 0 && indexB < 0){
+        return indexA;
+    }
+    if (indexB >= 0 && indexA < 0){
+        return indexB;
+    } 
+    if (indexA >= 0 && indexB >= 0){
+        return indexB > indexA ? indexB : indexA;
+    } 
+    return -1;
+}
 
 function getRequestListSources(locationId, includeHotels, includeRestaurants, includeAttractions) {
     const sources = [];
@@ -296,5 +313,5 @@ module.exports = {
     validateInput,
     getReviewTags,
     getReviews,
-    findLastReviewIndex,
+    findLastReviewIndex: findLastReviewIndexByDate,
 };

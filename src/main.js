@@ -135,7 +135,7 @@ Apify.main(async () => {
                 const initialRequest = await callForHotelList(locationId, session);
                 const { total_results } = initialRequest.paging;
                 const maxOffset = (maxItems === 0 || total_results < maxItems) ? total_results : maxItems;
-                let limit = (maxItems === 0 || LIMIT < maxItems) ? LIMIT : maxItems;
+                const limit = (maxItems === 0 || LIMIT < maxItems) ? LIMIT : maxItems;
                 log.info(`Processing hotels with last data offset: ${maxOffset}`);
                 const promises = [];
                 for (let i = 0; i < maxOffset; i += limit) {
