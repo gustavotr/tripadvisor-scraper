@@ -23,7 +23,6 @@ let savedItems = 0;
 const checkMaxItemsLimit = () =>{
     if(config.maxItems !== 0 && savedItems >= config.maxItems){
         log.warning('Reached maxItems limit!');
-        process.exit();
     };
 }
 
